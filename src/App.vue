@@ -1,5 +1,8 @@
 <template>
-  <div id="app"><router-view></router-view><main-tab-bar></main-tab-bar></div>
+  <div id="app">
+    <!-- router-view路由占位 -->
+    <router-view></router-view><main-tab-bar></main-tab-bar>
+  </div>
 </template>
 
 <script>

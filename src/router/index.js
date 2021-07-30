@@ -9,6 +9,7 @@ Vue.use(VueRouter);
 
 const routes = [
   {
+    // 默认跳转到/home
     path: "",
     redirect: "/home"
   },

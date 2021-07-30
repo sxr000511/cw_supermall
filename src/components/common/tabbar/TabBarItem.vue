@@ -1,6 +1,7 @@
 <template>
   <!--所有的item都展示同一个图片, 同一个文字-->
   <div class="tab-bar-item" @click="itemClick">
+    <!-- slot外面留一层div用来监听事件 和设置样式等等 -->
     <div v-if="!isActive"><slot name="item-icon"></slot></div>
     <div v-else><slot name="item-icon-active"></slot></div>
     <div :style="activeStyle"><slot name="item-text"></slot></div>
@@ -28,6 +29,10 @@ export default {
       // /home -> item1(/category) = false
       // /home -> item1(/cart) = true
       // /home -> item1(/profile) = true
+      // ////////////////////////////////////////////////////////////////////////////////
+      //       this.$router.push('/home')//push 等价于pushState 通过代码路径修改路由
+      //       // this.$router.replace('/home')//replace 等价于replaceState
+
       return this.$route.path.indexOf(this.path) !== -1;
     },
     activeStyle() {

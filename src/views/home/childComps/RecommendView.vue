@@ -1,5 +1,7 @@
 <template>
   <div class="recommend">
+    <!-- 同样v-for数组生成元素，div在外面绑定样式recommenditem ，href 和src 被v-bind 绑定为item。link 和item.image -->
+    <!-- recommends来自父组件，被props里的recommends接收，注意ARRAY 的A大写 -->
     <div
       v-for="(item, index) in recommends"
       :key="index"
