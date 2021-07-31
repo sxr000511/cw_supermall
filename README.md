@@ -44,3 +44,31 @@ scroll 的状态直接影响到【数据的更新】 以及一些样式
 1. ref 和 \$refs
 2. @click.native 监听组件 click 事件
 3. 计算属性的更新
+
+### 优化提升
+
+#### 事件总线 和 防抖
+
+待补充
+
+#### tabcontrol 吸顶
+
+在使用 bettercroll 吸顶效果受影响
+解决方法：
+
+1. 顶部防止额外的一个 tabcontrol，其显示状态初始为 false
+2. 监听页面 swiper 图片加载，当图片加载结束后，获得原始 tabcontrol 的 top 值
+3. 在 scroll 获得 height 的函数里，比较 tab 的原始 top 值和页面滚动值的大小关系
+4. 当页面滚动到 tab 消失的位置时，控制额外的一个 tab 显示出来
+
+由此做了一个假动画
+
+#### 页面跳转保持
+
+在 app.vue 中,
+
+```
+ <keep-alive><router-view /></keep-alive>
+```
+
+保持上次浏览位置
