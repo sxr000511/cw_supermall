@@ -65,6 +65,10 @@ export default {
     finishPullUp() {
       this.scroll.finishPullUp();
     },
+    // scroll.y封装
+    getScrollY() {
+      return this.scroll ? this.scroll.y : 0;
+    },
   },
 };
 </script>

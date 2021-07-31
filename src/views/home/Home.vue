@@ -1,7 +1,16 @@
 <template>
   <!-- 带-是因为html不识别驼峰 ,slot指定替换name,给navbar设置class 为了让该navbar在首页有自己的style-->
+  <!-- 没有做防抖，因为没有数据请求 -->
   <div id="home">
     <nav-bar class="home-nav"><div slot="center">首页</div></nav-bar>
+    <!-- 标准流 额外的一个tabcontrol放在这里解决betterscroll带来的吸附问题，受istabfixed控制是否显示-->
+    <tab-control
+      :titles="['流行', '新款', '精选']"
+      @tabClick="tabClick"
+      ref="tabControl1"
+      class="tab-control"
+      v-show="isTabFixed"
+    />
     <!-- probetype和pullupload都是父传子 ，传入参数决定是否监听滚动，是否上拉加载-->
     <!-- contentscroll是子传父，父组件contentscroll方法，父组件事件为sroll，监听子组件$emit的scroll事件  -->
     <!-- 在Vue中，我们不用获取dom节点，元素绑定ref之后，直接通过this.$refs即可调用，此处给scorll组件绑定ref为scroll，下面的方法用到了他 -->
@@ -14,14 +23,16 @@
       @scroll="contentScroll"
       @pullingUp="loadMore"
     >
-      <!-- swiper 和swiperitems 实现轮播图 swi里面有slot预留，在这个slot里插入，把图片轮播-->
-      <!-- 父组件给子组件传参 ： -->
-      <home-swiper :banners="banners" />
+      <!-- swiper新增监听swiperimageload，服务于sticktop效果，等swiper的images加载出来后获取top值 -->
+      <!-- homeswipter父组件给子组件传参 ： -->
+      <!-- swiper 和 swiperitems 实现轮播图 swi里面有slot预留，在这个slot里插入，把图片轮播-->
+      <home-swiper :banners="banners" @swiperImageLoad="swiperImageLoad" />
       <recommend-view :recommends="recommends" />
       <feature-view />
+      <!-- 解决betterscroll下吸顶效果的实现问题，用两个tabcontrol制造假动画 -->
       <!-- 子给父传，父监听子传来的tabclick事件，调用父的tabclick方法 ，:titles绑定变量-->
       <tab-control
-        class="tab-control"
+        ref="tabControl2"
         :titles="['流行', '新款', '精选']"
         @tabClick="tabClick"
       />
@@ -162,6 +173,9 @@ export default {
       // 默认为pop页面
       currentType: "pop",
       isShowBackTop: false,
+      isTabFixed: false,
+      tabOffsetTop: 0,
+      saveY: 0,
     };
   },
   // vue实例的生命周期函数created（）， 网络请求，
@@ -188,6 +202,21 @@ export default {
       return this.goods[this.currentType].list;
     },
   },
+  // 进入组件的生命周期函数
+  activated() {
+    this.$refs.scroll.scrollTo(0, this.saveY, 0);
+    // 见防抖，没设置
+    // this.$refs.scroll.refresh();
+  },
+  // 离开组件的生命周期函数
+  deactivated() {
+    // 1.保存当前浏览的位置
+    this.saveY = this.$refs.scroll.getScrollY();
+
+    // 2. 取消全局事件监听，具体原因见下方
+    // this.$bus.$off('itemImgLoad', this.itemImgListener)
+  },
+
   methods: {
     // 具体写方法
     /**
@@ -207,7 +236,17 @@ export default {
           this.currentType = "sell";
           break;
       }
+      // homevue实例下改变组件的currentindex
+      if (this.$refs.tabControl1 !== undefined) {
+        this.$refs.tabControl1.currentIndex = index;
+        this.$refs.tabControl2.currentIndex = index;
+      }
     },
+    swiperImageLoad() {
+      // 获取tabOffsetTop的offsetTop
+      this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
+    },
+
     // 点击回到顶部
     backClick() {
       // this.$refs.scroll指向scroll组件，调用scroll的方法scrollTo
@@ -215,8 +254,12 @@ export default {
     },
     // 通过子组件传来的position决定homevue里是否显示scroll图标
     contentScroll(position) {
-      // console.log(position);
+      // 决定返回按钮是否显示
       this.isShowBackTop = -position.y > 300;
+      // 改版istabfixed，决定是否吸顶
+      this.isTabFixed = -position.y > this.tabOffsetTop;
+      // console.log(this.tabOffsetTop);
+      // console.log(this.isTabFixed);
     },
     // 上拉加载更多，受端口影响无法取到数据，注释掉了
     loadMore() {
@@ -256,23 +299,29 @@ export default {
 
 <style scoped>
 #home {
-  padding-top: 44px;
+  /* padding-top: 44px; */
   height: 100vh;
   position: relative;
 }
 .home-nav {
   background-color: var(--color-tint);
   color: #fff;
-  position: fixed;
+  /* position: fixed;
   left: 0;
   right: 0;
-  top: 0;
+  top: 0;*/
   z-index: 9;
 }
-.tab-control {
+/* 原生sticiky实现吸顶不能在betterscroll下使用 */
+/* .tab-control {
   position: sticky;
   top: 44px;
   z-index: 9;
+} */
+.tab-control {
+  position: relative;
+  z-index: 9;
+  padding-top: 0;
 }
 .content {
   overflow: hidden;
