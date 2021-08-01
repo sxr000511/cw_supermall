@@ -30,100 +30,15 @@
       <recommend-view :recommends="recommends" />
       <feature-view />
       <!-- 解决betterscroll下吸顶效果的实现问题，用两个tabcontrol制造假动画 -->
-      <!-- 子给父传，父监听子传来的tabclick事件，调用父的tabclick方法 ，:titles绑定变量-->
+      <!-- 子给父传，父监听子传来的tabclick事件，得知点击了哪个title，调用父的tabclick方法 ，:titles绑定变量-->
       <tab-control
         ref="tabControl2"
         :titles="['流行', '新款', '精选']"
         @tabClick="tabClick"
       />
-      <!-- 用来占位 -->
-      <ul>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-        <li>hello</li>
-      </ul>
+      <!-- [计算属性]showgoods ，动态改变goodlist里的内容-->
+      <good-list :goods="showGoods" />
     </scroll>
-    <!-- 占位结束 -->
-    <!-- 无法用接口，这里注释了 -->
-    <!-- 计算属性showgoods ，动态改变goodlist里的内容-->
-    <!-- <good-list :goods="showGoods" /> -->
     <!-- 注释结束 -->
     <!-- 返回顶部的按钮backtop， naive 必须加，用来监听vue组件的click，是否显示受到变量控制，改变量受scroll滚动距离控制 -->
     <!-- homevue的backclick方法绑定在click事件，v-show受dataisshowbacktop控制 ，scroll的contentscroll控制这个变量-->
@@ -178,8 +93,9 @@ export default {
       saveY: 0,
     };
   },
+  // ////////////////////////////////////////////////////
   // vue实例的生命周期函数created（）， 网络请求，
-  // 组件创建完成-》》created()
+  // 组件创建完成-》》created(), 挂载mounted（），activated，deactivated
   created() {
     // created里只写主要逻辑
     // 再包装一层，不要把methods里的方法写道这里，乱
@@ -188,11 +104,44 @@ export default {
     // /////////////////////////
     // 1.请求多个数据
     this.getHomeMultidata();
-    // // 2.请求商品数据
-    // // 第一次进入都请求一次
-    // this.getHomeGoods("pop");
-    // this.getHomeGoods("new");
-    // this.getHomeGoods("sell");
+    // 2.请求商品数据
+    // 第一次进入都请求一次
+    this.getHomeGoods("pop");
+    this.getHomeGoods("new");
+    this.getHomeGoods("sell");
+  },
+  mounted() {
+    // 3.事件总线监听goodslistitem的itemimageload 事件，每个img加载完毕都会发送itemimageload到事件总线
+    // 非父组件home监听事件总线，调用子组件scroll的refresh方法去调用模块的refresh（），使scroll重新计算内部元素的高度【又封装了一层方法而已】
+    // 【可以在这里直接调用refresh，但是不够美观】
+    // this.$bus.$on("itemImageLoad", () => {
+    //   // console.log("woshibus");
+    //   this.$refs.scroll.refresh();
+    // });
+    // 防抖动：监听图片加载完成，
+    //这里后面不要加小括号，是传入函数！！
+    const refresh = this.debounce(this.$refs.scroll.refresh, 50);
+    //  《《--debounce返回函数对象，refresh直接refresh（）可调用
+    // 对监听的事件进行保存，方便离开home组件时取消此事件监听
+    // 此处是闭包，引用，上面的局部变量refresh（）不会被销毁（debounce里的timer也是闭包不会被销毁）
+    this.$bus.$on("itemImageLoad", () => {
+      refresh();
+    });
+  },
+  // saveY使商品goodslist跳转保存位置
+  // 进入组件的生命周期函数
+  activated() {
+    // refresh方法，scroll.vue中
+    this.$refs.scroll.refresh();
+    // ref获得组件scroll，x不需要滚动为0，时间为0，saveY由上次保存取得
+    this.$refs.scroll.scrollTo(0, this.saveY, 2);
+  },
+  // 离开组件的生命周期函数
+  deactivated() {
+    // 1.保存当前浏览的位置，scrollvue的getscrolly方法
+    this.saveY = this.$refs.scroll.getScrollY();
+    // 2. 取消全局事件监听，具体原因见下方
+    // this.$bus.$off('itemImgLoad', this.itemImgListener)
   },
   computed: {
     showGoods() {
@@ -202,21 +151,9 @@ export default {
       return this.goods[this.currentType].list;
     },
   },
-  // 进入组件的生命周期函数
-  activated() {
-    this.$refs.scroll.scrollTo(0, this.saveY, 0);
-    // 见防抖，没设置
-    // this.$refs.scroll.refresh();
-  },
-  // 离开组件的生命周期函数
-  deactivated() {
-    // 1.保存当前浏览的位置
-    this.saveY = this.$refs.scroll.getScrollY();
-
-    // 2. 取消全局事件监听，具体原因见下方
-    // this.$bus.$off('itemImgLoad', this.itemImgListener)
-  },
-
+  // ////////////////////////////////////////////////////
+  // 方法
+  // /////////////////////////////////////////////////
   methods: {
     // 具体写方法
     /**
@@ -236,6 +173,7 @@ export default {
           this.currentType = "sell";
           break;
       }
+      // console.log(index);
       // homevue实例下改变组件的currentindex
       if (this.$refs.tabControl1 !== undefined) {
         this.$refs.tabControl1.currentIndex = index;
@@ -243,6 +181,7 @@ export default {
       }
     },
     swiperImageLoad() {
+      // $el 在vue里用于获取组件的dom元素，组件是没有offetop的，
       // 获取tabOffsetTop的offsetTop
       this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
     },
@@ -255,16 +194,17 @@ export default {
     // 通过子组件传来的position决定homevue里是否显示scroll图标
     contentScroll(position) {
       // 决定返回按钮是否显示
-      this.isShowBackTop = -position.y > 300;
+      this.isShowBackTop = -position.y > 1000;
       // 改版istabfixed，决定是否吸顶
       this.isTabFixed = -position.y > this.tabOffsetTop;
       // console.log(this.tabOffsetTop);
       // console.log(this.isTabFixed);
     },
-    // 上拉加载更多，受端口影响无法取到数据，注释掉了
+    // 上拉加载更多
     loadMore() {
-      // this.getHomeGoods(this.currentType);
+      this.getHomeGoods(this.currentType);
     },
+    // /////////////////////////////////////////////////////
     /**
      * 网络请求相关的方法
      */
@@ -285,13 +225,27 @@ export default {
         // 把一个数组的数据放到另一个数组里
         // 1：[es6] ...
         // 方法2：遍历数组
-        console.log(res.data);
+        // console.log(res.data);
         this.goods[type].list.push(...res.data.list);
         this.goods[type].page += 1;
-        // 此处使上拉加载更多的代码，必须要finish才能再次上拉加载，
-        // 受端口影响无法用加载数据
+        // 【上拉加载必须加上】此处使上拉加载更多的代码，必须要finish才能再次上拉加载，
         this.$refs.scroll.finishPullUp();
       });
+    },
+    // 防抖动debounce
+    //func 什么函数 delay等多久
+    debounce(func, delay) {
+      let timer = null;
+      return function (...args) {
+        // 《《---...arg可以接收很多参数，不止一个
+        //将之前timer清除重新计时
+        if (timer) clearTimeout(timer);
+        // 此处闭包，timer被if后面的timer引用，不会被销毁，会进入if判断
+        //settimeout延时
+        timer = setTimeout(() => {
+          func.apply(this, args);
+        }, delay);
+      };
     },
   },
 };

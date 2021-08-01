@@ -51,7 +51,7 @@ export default {
       this.$emit("scroll", position);
     });
     //
-    // 3.监听上拉事件，子给父传
+    // 3.监听上拉事件，子给父传，触发homevue的上拉加载更多方法
     this.scroll.on("pullingUp", () => {
       this.$emit("pullingUp");
     });
@@ -59,13 +59,19 @@ export default {
   methods: {
     //   父组件homevue调用
     // es6：默认值300ms滚到顶部（如果x=y=0）
-    scrollTo(x, y, time = 300) {
-      this.scroll.scrollTo(x, y, time);
+    scrollTo(x, y, time = 500) {
+      this.scroll && this.scroll.scrollTo(x, y, time);
     },
     finishPullUp() {
-      this.scroll.finishPullUp();
+      this.scroll && this.scroll.finishPullUp();
     },
-    // scroll.y封装
+    // refresh() 调用refresh（）方法，重新计算scroll的内容高度，用于滑动bug
+    refresh() {
+      // 有了debounce防抖，这里一般只打印一次
+      // console.log("debounce");
+      this.scroll && this.scroll.refresh();
+    },
+    // scroll.y封装，判断下，用于页面跳转保存位置
     getScrollY() {
       return this.scroll ? this.scroll.y : 0;
     },

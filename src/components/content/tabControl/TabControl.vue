@@ -33,7 +33,7 @@ export default {
     // 监听div的click事件调用itemclick方法
     itemClick(index) {
       this.currentIndex = index;
-      // 子给父传了tabclick事件
+      // 子给父传了tabclick事件，传出点击了谁，用来改变商品的显示
       this.$emit("tabClick", index);
     },
   },

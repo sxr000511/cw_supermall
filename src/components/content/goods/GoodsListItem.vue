@@ -1,9 +1,10 @@
 <template>
-  <div class="goods-item">
+  <div class="goods-item" @click="itemClick">
     <!-- goodsitem是对象 -->
-    <!-- 接口改了，用不了了 -->
+    <!-- goodsitem由父goodslist传参goodsitem而来 -->
     <!-- src属性动态绑定goodsitem的show的img属性 -->
-    <img :src="goodsItem.show.img" alt="" />
+    <!-- @load监听img加载 ，加载完成调用imageload方法，发射事件到事件总线$bus上-->
+    <img :src="goodsItem.show.img" alt="" @load="imageLoad" />
     <div class="goods-info">
       <p>{{ goodsItem.title }}</p>
       <span class="price">{{ goodsItem.price }}</span>
@@ -22,6 +23,25 @@ export default {
       default() {
         return {};
       },
+    },
+  },
+  methods: {
+    // goodslist加载完成，利用事件总线发出事件, 首页在created开始监听（创建好了就监听）
+    imageLoad() {
+      this.$bus.$emit("itemImageLoad");
+    },
+    itemClick() {
+      // 点击goodslistitem ，路由跳转,用push不用replace，因为需要返回
+      // 路由传参将iid传给detail.vue，让detail向服务器发请求，保存数据，
+      // this.$router.push("/detail");
+      // 1.【传参】动态路由  iid 商品id
+      this.$router.push("/detail/" + this.goodsItem.iid);
+      // 2.【传参】query
+      // this.$router.push ({
+      //   path:'/detail',
+      //   query:{
+      //   }
+      // })
     },
   },
 };
