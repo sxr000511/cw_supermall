@@ -49,7 +49,53 @@ scroll 的状态直接影响到【数据的更新】 以及一些样式
 
 #### 事件总线 和 防抖
 
-待补充
+##### 事件总线
+
+每一个 goodlistitem 的图片加载完毕后，都让他向事件总线$bus.$emit 发送事件，与此同时，homevue 监听事件总线上的这个事件，$bus.$on ，每监听到一次，让 betterscroll 调用 refresh 方法，重新计算 scroll 高度
+其中，\$bus 是挂载在 app.vue 上的 vue 实例，因为 vue 实例可以发射事件
+这个功能也可以用 vuex 做
+【还有一些小问题】
+
+1. 注意在 mounted 监听事件，不要在 created，created 时 scroll 未挂载到 dom 上
+
+##### 防抖
+
+在事件总线监听基础上，需要防抖来降低性能浪费
+因为如果不防抖，每张图片都要发射事件，资源浪费严重
+debounce 函数如下
+
+```javascript
+ debounce(func, delay) {
+   //func 什么函数 delay等多久
+        let timer = null
+        return function (...args) {
+          //《《---...arg可以接收很多参数，不止一个
+        //将之前timer清除重新计时
+          if (timer) clearTimeout(timer)
+          // 《---此处闭包，timer被if后面的timer引用，不会被销毁，会进入if判断
+         //settimeout延时
+          timer = setTimeout(() => {
+            func.apply(this, args)
+          }, delay)
+        }
+      },
+```
+
+home.vue 中监听
+
+```javascript
+mounted () {
+    // 1.监听item中图片加载完成，
+    //这里后面refresh不要加小括号，是传入函数！！不是函数返回值
+     const refresh = debounce(this.$refs.scroll.refresh,50)
+     //《《--debounce返回函数对象，refresh直接refresh（）可调用
+      // 对监听的事件进行保存，方便离开home组件时取消此事件监听
+       this.itemImgListener = () => { refresh() }
+      // 此处是闭包，引用，上面的局部变量refresh（）不会被销毁（debounce里的timer也是闭包不会被销毁）
+       this.$bus.$on('itemImageLoad', this.itemImgListener)
+  },
+
+```
 
 #### tabcontrol 吸顶
 
@@ -72,3 +118,27 @@ scroll 的状态直接影响到【数据的更新】 以及一些样式
 ```
 
 保持上次浏览位置
+
+## 【页面】详情页
+
+### detail 路由配置
+
+views 增加一个 detail.vue 作为 home 的详情页
+点击 homevue 里的 goodlistitem，跳转到对应的详情页
+携带 ID 跳转，
+路由跳转携带参数的方式：（见 vuerouter）
+
+1. 动态路由  
+   `动态绑定id，path：'/detail/:id'`
+   //  不要在 path 里加一些空格！！！！会导致取不到 iid
+2. query 方法
+
+然后在 detal 里利用 `$route` 可获得当前路由的相关信息`params`,
+`this.iid = this.$route.params.iid`
+
+### navbar 导航
+
+调用 common/navbar ，比较复杂在 detailnavbar 里做
+在 slot=left 插入箭头，click 时间调用方法使路由返回
+动态 v-for 遍历生成 4 个 slot = center，再设置相关样式，比如点击变红即可
+（之前 home.vue 做过）
