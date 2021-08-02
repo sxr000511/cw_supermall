@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <!-- router-view路由占位 -->
-    <keep-alive><router-view /></keep-alive>
+    <keep-alive exclude="Detail"><router-view /></keep-alive>
     <main-tab-bar />
   </div>
 </template>

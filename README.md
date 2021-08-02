@@ -142,3 +142,178 @@ views 增加一个 detail.vue 作为 home 的详情页
 在 slot=left 插入箭头，click 时间调用方法使路由返回
 动态 v-for 遍历生成 4 个 slot = center，再设置相关样式，比如点击变红即可
 （之前 home.vue 做过）
+
+### detail 的重点：数据处理和保存
+
+新建一个，在 detail.js,【根据 url 的 iid】请求数据 《《《---【数据很复杂】
+我们需要抽离数据展示
+[detai.js]:
+
+```javascript
+import { request } from "./request";
+// {}对象来import，因为request不是exportdefault我们不能自己起别名
+
+// 把首页所有的数据请求放到这个文件里统一管理
+export function getDetail(iid) {
+  return request({
+    url: "/detail",
+    params: {
+      iid,
+    },
+  });
+}
+
+// 将复杂数据封装成数据类传给detail.vue
+export class Goods {
+  constructor(itemInfo, columns, services) {
+    this.title = itemInfo.title;
+    this.desc = itemInfo.desc;
+    this.newPrice = itemInfo.price;
+    this.oldPrice = itemInfo.oldPrice;
+    this.discount = itemInfo.discountDesc;
+    this.columns = columns;
+    this.services = services;
+    this.realPrice = itemInfo.lowNowPrice;
+  }
+}
+
+export class Shop {
+  constructor(shopInfo) {
+    this.logo = shopInfo.shopLogo;
+    this.name = shopInfo.name;
+    this.fans = shopInfo.cFans;
+    this.sells = shopInfo.cSells;
+    this.score = shopInfo.score;
+    this.goodsCount = shopInfo.cGoods;
+  }
+}
+
+export class GoodsParam {
+  constructor(info, rule) {
+    // 注: images可能没有值(某些商品有值, 某些没有值)
+    this.image = info.images ? info.images[0] : "";
+    this.infos = info.set;
+    this.sizes = rule.tables;
+  }
+}
+```
+
+detail.vue:保存数据，传给各个 childcomponent
+
+```javascript
+ //   生命周期函数created()
+  created() {
+    //   从路径url传来的参数iid 保存到vue实例的data里
+    this.iid = this.$route.params.iid;
+    // 从detail.js 【【获得数据】】
+    getDetail(this.iid).then((res) => {
+      // console.log(res);
+      const data = res.result;
+      // 1. 获取顶部轮播图数据  封装一个swipers展示这六张图片
+      this.topImages = data.itemInfo.topImages;
+      // 2.获取商品信息，goods封装类来自detail.js
+      this.goods = new Goods(
+        data.itemInfo,
+        data.columns,
+        data.shopInfo.services
+      );
+      // 3.创建店铺信息的对象
+      this.shop = new Shop(data.shopInfo);
+      // 4.保存商品的详情数据[没写类]
+      this.detailInfo = data.detailInfo;
+      // 5.获取参数的信息
+      this.paramInfo = new GoodsParam(
+        data.itemParams.info,
+        data.itemParams.rule
+      );
+    });
+  },
+```
+
+### 调用子组件子组件 detailbaseinfo.vue ，detailshopinfo.vue，DetailGoodsInfo.vue 等
+
+简单页面构造，把从 detailvue 里保留的数据传到对应的子组件里，根据数据的含义设计样式即可
+
+知识点：
+
+1. vuefor 遍历数字
+2. `<div v-if="Object.keys(goods).length !== 0" class="base-info"></div>`
+   子组件渲染的时候可以先看一下父组件有没有传数据过来，有数据后再渲染
+   【goods 是从 detailvue 获得的 props，如果不为空，渲染整个 detailinfo 大 div】
+3. 过滤器 filter 过滤器串联
+
+```javascript
+ <!-- filters 过滤器 串联，sells是sellcountfilter的变量-->
+<div class="sells-count">
+     {{ shop.sells | sellCountFilter }}
+</div>
+  //  本地过滤器
+filters: {
+      sellCountFilter: function(value) {
+        if (value < 10000) return value;
+        return (value / 10000).toFixed(1) + "万";
+      }
+    }
+```
+
+```
+本地的过滤器：filters: {}
+创建 Vue 实例之前全局定义过滤器
+        Vue.filter(‘name’, function () {})
+
+        new Vue({
+})
+当全局过滤器和局部过滤器重名时，会采用局部过滤器。
+ 过滤器可以串联：
+ 1. {{ message | filterA | filterB }} 【 message-》fA-》fA output-》fB】
+ 2. {{ message | filterA('arg1', arg2) }}【fA（message，'agr1'，arg2）】 三参数的fA
+```
+
+4. 遍历生成表格 table -》 tr 行 row-》 td 数据 data，变量绑定 style
+5. DetailGoodsInfo.vue 中
+     图片全部加载完毕，子函数发送 imageload 事件到父组件， 《《《---省流
+     父组件监听到事件调用方法，控制 scroll refresh 重新计算滚动高度，
+     发送事件：【只发送一次  】通过 watch 监听属性变化
+
+detail.vue 中
+`<detail-goods-info :detail-info="detailInfo" @imageLoad="imageLoad" />`
+detailgoodsinfo 中
+
+watch 监听属性，【被监听的属性变化，调用函数】
+
+```javascript
+  <script>
+  export default {
+    name: "DetailGoodsInfo",
+    props: {
+      detailInfo: {
+        type: Object
+      }
+    },
+    data() {
+      return {
+        counter: 0,
+        imagesLength: 0
+      }
+    },
+    methods: {
+      imgLoad() {
+        // 判断, 所有的图片都加载完了, 那么进行一次回调就可以了.
+        if (++this.counter === this.imagesLength) {
+          this.$emit('imageLoad');
+        }
+      }
+    },
+    watch: {
+      detailInfo() {
+        // 获取图片的个数
+        this.imagesLength = this.detailInfo.detailImage[0].list.length
+      }
+    }
+  }
+</script>
+```
+
+6. 引入 better scroll
+   把想要滚动的页面放到 btscroll 标签内部
+   注意：一定要给 scroll 设置高度才能滚动
