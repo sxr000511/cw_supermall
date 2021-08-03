@@ -17,6 +17,9 @@
       发送事件：【只发送一次 】通过watch监听属性变化-->
       <detail-goods-info :detail-info="detailInfo" @imageLoad="imageLoad" />
       <detail-param-info :param-info="paramInfo" />
+      <detail-comment-info :comment-info="commentInfo" />
+      <!-- 复用goodslist展示推荐数据 -->
+      <goods-list :goods="recommends" />
     </scroll>
   </div>
 </template>
@@ -29,11 +32,21 @@ import DetailBaseInfo from "./childComps/DetailBaseInfo.vue";
 import DetailShopInfo from "./childComps/DetailShopInfo.vue";
 import DetailGoodsInfo from "./childComps/DetailGoodsInfo";
 import DetailParamInfo from "./childComps/DetailParamInfo";
+import DetailCommentInfo from "./childComps/DetailCommentInfo";
 
 import Scroll from "components/common/scroll/Scroll";
+import GoodsList from "components/content/goods/GoodsList";
 
+import { imgListenerMixin } from "common/mixin.js";
 // goods 封装类
-import { getDetail, Goods, Shop, GoodsParam } from "network/detail.js";
+import {
+  getDetail,
+  getRecommend,
+  Goods,
+  Shop,
+  GoodsParam,
+} from "network/detail.js";
+
 export default {
   name: "Detail",
   components: {
@@ -43,7 +56,9 @@ export default {
     DetailShopInfo,
     DetailGoodsInfo,
     DetailParamInfo,
+    DetailCommentInfo,
     Scroll,
+    GoodsList,
   },
   data() {
     return {
@@ -54,13 +69,20 @@ export default {
       shop: {},
       detailInfo: {},
       paramInfo: {},
+      commentInfo: {},
+      recommends: [],
+      //此处可mixin
+      // itemImgListener: null,
     };
   },
+  // 混入mixin
+  mixins: [imgListenerMixin],
   methods: {
     imageLoad() {
       this.$refs.scroll.refresh();
     },
   },
+
   //   生命周期函数created()
   created() {
     //   从路径url传来的参数iid 保存到vue实例的data里
@@ -86,7 +108,23 @@ export default {
         data.itemParams.info,
         data.itemParams.rule
       );
+      //6.获取评论信息第一条,有些没有
+      if (data.cRate !== 0) {
+        this.commentInfo = data.rate.list[0];
+      }
     });
+    // 7.获取推荐数据
+    // 复用goodslist
+    getRecommend().then((res) => {
+      this.recommends = res.data.list;
+    });
+  },
+  // mounted上监听事件总线的imgload事件，调用scroll的refresh方法，重新计算高度，scroll滚动【同homevue】
+  mounted() {},
+  // 没有对 Detail 组件keep-alive，所以在离开组件时取消图片加载事件的监听，要用 destroyed() 生命周期函数取消事件
+  destroyed() {
+    // 离开组件时取消图片加载监听事件
+    this.$bus.$off("itemImageLoad", this.itemImgListener);
   },
 };
 </script>

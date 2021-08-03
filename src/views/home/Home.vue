@@ -59,6 +59,7 @@ import Scroll from "components/common/scroll/Scroll";
 // 方法
 //1. 面向home.js请求数据，home.js面向request.js，request.js 用axios
 import { getHomeMultidata, getHomeGoods } from "network/home";
+import { imgListenerMixin } from "common/mixin.js";
 import GoodList from "components/content/goods/GoodsList.vue";
 import BackTop from "components/content/backTop/BackTop";
 
@@ -91,6 +92,9 @@ export default {
       isTabFixed: false,
       tabOffsetTop: 0,
       saveY: 0,
+      // 事件总线监听
+      //此处可mixin
+      // itemImgListener: null,
     };
   },
   // ////////////////////////////////////////////////////
@@ -124,9 +128,11 @@ export default {
     //  《《--debounce返回函数对象，refresh直接refresh（）可调用
     // 对监听的事件进行保存，方便离开home组件时取消此事件监听
     // 此处是闭包，引用，上面的局部变量refresh（）不会被销毁（debounce里的timer也是闭包不会被销毁）
-    this.$bus.$on("itemImageLoad", () => {
+    this.itemImgListener = () => {
       refresh();
-    });
+    };
+    // 这把函数绑定到变量上才能在下面取消监听
+    this.$bus.$on("itemImageLoad", this.itemImgListener);
   },
   // saveY使商品goodslist跳转保存位置
   // 进入组件的生命周期函数
@@ -140,8 +146,10 @@ export default {
   deactivated() {
     // 1.保存当前浏览的位置，scrollvue的getscrolly方法
     this.saveY = this.$refs.scroll.getScrollY();
-    // 2. 取消全局事件监听，具体原因见下方
-    // this.$bus.$off('itemImgLoad', this.itemImgListener)
+    // 2. 取消全局事件监听，离开homevue的时候取消
+    // 因为在detailvue里服用了组件goodslist，goodslist也会向总线发itemimgload事件
+    // 不让detailvue的该事件影响到homevue
+    this.$bus.$off("itemImgLoad", this.itemImgListener);
   },
   computed: {
     showGoods() {
@@ -151,6 +159,7 @@ export default {
       return this.goods[this.currentType].list;
     },
   },
+  mixins: [imgListenerMixin],
   // ////////////////////////////////////////////////////
   // 方法
   // /////////////////////////////////////////////////

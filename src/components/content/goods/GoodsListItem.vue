@@ -2,9 +2,10 @@
   <div class="goods-item" @click="itemClick">
     <!-- goodsitem是对象 -->
     <!-- goodsitem由父goodslist传参goodsitem而来 -->
-    <!-- src属性动态绑定goodsitem的show的img属性 -->
+    <!-- src属性动态绑定goodsitem的计算属性 -->
+    <!-- 因为src可能路径不同【组件复用了】 -->
     <!-- @load监听img加载 ，加载完成调用imageload方法，发射事件到事件总线$bus上-->
-    <img :src="goodsItem.show.img" alt="" @load="imageLoad" />
+    <img :src="showImg" alt="" @load="imageLoad" />
     <div class="goods-info">
       <p>{{ goodsItem.title }}</p>
       <span class="price">{{ goodsItem.price }}</span>
@@ -23,6 +24,17 @@ export default {
       default() {
         return {};
       },
+    },
+  },
+  computed: {
+    // 复用goodslist图片路径不一样
+    showImg() {
+      // console.log(this.goodsItem.show.img);
+      // console.log(this.goodsItem.image);
+      // ||懒运算
+      return (
+        this.goodsItem.img || this.goodsItem.image || this.goodsItem.show.img
+      );
     },
   },
   methods: {

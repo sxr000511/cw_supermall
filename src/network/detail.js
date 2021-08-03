@@ -10,6 +10,12 @@ export function getDetail(iid) {
     }
   });
 }
+// 推荐信息在另一个接口下
+export function getRecommend() {
+  return request({
+    url: "/recommend"
+  });
+}
 
 // 将复杂数据封装成数据类传给detail.vue
 export class Goods {

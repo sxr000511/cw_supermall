@@ -317,3 +317,166 @@ watch 监听属性，【被监听的属性变化，调用函数】
 6. 引入 better scroll
    把想要滚动的页面放到 btscroll 标签内部
    注意：一定要给 scroll 设置高度才能滚动
+
+### DetailCommentInfo.vue 【时间戳 -》格式字符串】
+
+服务器 cteated 返回时间戳
+
+处理方法
+
+1. 时间格式化
+2. 服务器返回时间戳->new date()->格式化
+
+**用到了 filters 串联过滤器**
+formatedate 来自 util.js，现成的【js 里没有原生方法】
+
+```javascript
+<span class="date">{{ commentInfo.created | showDate}}</span>
+
+filters:{
+    showDate(value) {
+      // 1.将时间戳传换成Date对象
+      const date = new Date(value)
+
+      // 2.将date进行格式化
+      return formatDate(date, 'yyyy-MM-dd')
+    }
+  }
+```
+
+### 推荐信息的展示
+
+复用 homevue 里的 GoodsList，goodslistitem 展示一堆图片
+
+1. detail.JS 里向路由请求信息
+   getrecommend
+2. 复用 goodslistitem 时，由于图片数据格式不一样，需要用计算属性绑定 ing'标签的 src 属性
+   **注意或运算的懒运算，先后顺序很重要，一层一层拿**
+
+```javascript
+computed: {
+    showImage () {
+      return this.goodsItem.image || this.goodsItem.img || this.goodsItem.show.img
+    }
+  },
+```
+
+#### goodlistitem 向事件总线 emit 的问题
+
+复用时，detailvue 的 goodslist 发送事件到事件总线让 homevue 刷新
+不合理
+解决方法
+
+##### 1. 利用路由： if 判断 让每个 route 有自己的事件,不同组件互不干扰
+
+goodlist 里
+
+```javascript
+methods: {
+    imageLoad () {
+      // 1. 利用路由的路径判断发送哪个事件
+       if(this.$route.indexOf('/home')){
+         this.$bus.$emit('homeImageLoad')
+       }else if(this.$route.indexOf('/detail')){
+         this.$bus.$emit('detailImageLoad')
+       }
+    },
+```
+
+##### 2.离开 homevue 组件时取消监听
+
+1. 在 goodListItem 里面仍然只发送一个 imageLoad 图片加载事件
+
+```javascript
+methods: {
+    imageLoad () {
+      this.$bus.$emit("itemImageLoad")
+    },
+```
+
+2. home 组件中`deactivated()`取消全局事件监听 :`this.$bus.$off`
+
+**因为此时设置了 keep-alive，所以离开时调用的是 deactivated(),而不是 destroyed()**
+
+home.vue
+
+```javascript
+deactivated () {
+    // 保存离开时的位置信息到this.saveY
+    this.saveY = this.$refs.scroll.getScrollY()
+    // console.log(this.saveY);
+    // 2.取消全局事件监听（主页图片加载的监听）因为此时设置了keep-alive，所以离开时调用的是deactivated()
+    this.$bus.$off('itemImageLoad',this.itemImgListener)
+  },
+```
+
+**注意**
+`this.$bus.$off`如果只传一个参数，意味着所有组件中这个事件监听都将被取消，
+利用第二个参数：函数，指定取消的位置，这个函数就是监听这个事件的函数，
+mounted 中
+
+```javascript
+mounted () {
+    // 可利用混入，减少重复代码
+    // 1.监听item中图片加载完成，刷新防抖函数放到了utils.js中，工具库
+     const refresh = debounce(this.$refs.scroll.refresh,50)
+      // 对监听的事件进行保存，方便离开home组件时取消此事件监听
+       this.itemImgListener = () => { refresh() }
+
+       this.$bus.$on('itemImageLoad', this.itemImgListener)
+  },
+
+```
+
+其中 `itemImgListener`是在 data 里定义的 null，用来保存事件监听回调函数
+
+**另外，没有对 Detail 组件 keep-alive，所以在离开组件时取消图片加载事件的监听，要用 destroyed() 生命周期函数取消事件**
+
+```javascript
+destroyed () {
+    // detail.vue 离开组件时取消图片加载监听事件
+    this.$bus.$off('itemImageLoad', this.itemImgListener)
+  },
+```
+
+### mixin 【vue 高级】
+
+由上可见，在总线监听的时候有很多重复的代码，可以使用 mixin
+会**合并**
+使用方法如下
+
+1. 在 common 文件夹下创建 mixin.js
+2. 在需要的组件中导入
+
+mixin.js 中：
+data 可以不在 mixin 中定义，记得引入 debounce 防抖函数
+
+```javascript
+// mixin 混入，此mounted 函数将与组件内的 mounted 函数合并，不冲突
+// 混入时写的哪个函数，导入后就能实现相应函数的功能
+import { debounce } from "./utils";
+export const imgListenerMixin = {
+  data() {
+    return {
+      // 监听图片
+      imgListener: null,
+    };
+  },
+  mounted() {
+    // 给防抖函数赋值一个新的函数
+    const refresh = debounce(this.$refs.scroll.refresh, 50); // 接收发射的事件总线,并用监听图片变量保存
+    this.imgListener = () => {
+      refresh();
+    };
+    this.$bus.$on("imgLoad", this.imgListener);
+  },
+};
+```
+
+导入到具体组件 **mixins: [itemListenerMixin]**
+
+```javascript
+import {itemListenerMixin} from 'common/mixin.js'
+// 混入
+  mixins: [itemListenerMixin],
+```
