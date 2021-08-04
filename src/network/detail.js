@@ -20,6 +20,8 @@ export function getRecommend() {
 // 将复杂数据封装成数据类传给detail.vue
 export class Goods {
   constructor(itemInfo, columns, services) {
+    this.iid = itemInfo.iid;
+
     this.title = itemInfo.title;
     this.desc = itemInfo.desc;
     this.newPrice = itemInfo.price;

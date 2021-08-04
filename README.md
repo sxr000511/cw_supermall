@@ -480,3 +480,363 @@ import {itemListenerMixin} from 'common/mixin.js'
 // 混入
   mixins: [itemListenerMixin],
 ```
+
+### 详情页中 navbar 与内容的联动【 点击滚动+滚动变红 】
+
+#### 点击 navbar 跳转至相应位置
+
+获取到对应组件元素的 offsetTop
+再监听点击事件，进行跳转
+关键：
+**【【获取到正确的 offsetTop】】《《--即如何获得组件正确的 offsettop**
+
+1. created: 不能获取到元素
+2. mounted ：【可能子组件没有加载完成，因为子组件在有数据时才开始渲染（见 vue 组件）】组件中的数据还没有获取到
+3. 获取到数据的回调中也不行，能保证组件中有数据，但是若 DOM 还没渲染完，拿不到元素的 offsetTop（需要渲染完成，再更新 dom）
+
+##### 方法一： 放在 updated() {} 里 《《--不好 每次更新都会 push
+
+一共四个 offsettop 依次推入数组
+**refs.~~ 用于 利用 ref 获得 vue 实例（vue 子组件设置 ref 属性）**
+**el 用于获得 dom 元素**
+
+```javascript
+this.themeTopYs.push(this.$refs.params.$el.offsetTop);
+```
+
+```javascript
+updated() {
+//每次更新都会push，每次更新前先让他为空[]
+  this.themeTopYs = []
+  this.themeTopYs.push(0);
+  this.themeTopYs.push(this.$refs.params.$el.offsetTop)
+  this.themeTopYs.push(this.$refs.comment.$el.offsetTop)
+  this.themeTopYs.push(this.$refs.recommend.$el.offsetTop)
+}
+```
+
+##### 方法二: 利用\$nextTick，放在渲染完数据之后，回调一次 《《--不好 图片还没有加载完
+
+这个方法，\$nexttick 回调时，根据最新的数据，DOM 已经被渲染出来了
+但是图片还没有加载完
+offset 值不对一般都是因为图片加载的原因
+
+```javascript
+this.$nextTick(() => {
+  this.themeTopYs = [];
+
+  this.themeTopYs.push(0);
+  this.themeTopYs.push(this.$refs.params.$el.offsetTop);
+  this.themeTopYs.push(this.$refs.comment.$el.offsetTop);
+  this.themeTopYs.push(this.$refs.recommend.$el.offsetTop);
+});
+```
+
+##### 方法三 should: 放到 scroll 图片加载完毕后的监听方法里
+
+**【【加防抖】】**
+
+```javascript
+methods: {
+    imgLoad () {
+      this.$refs.scroll.refresh()
+      this.getTopYs()
+    },
+
+```
+
+```javascript
+created () {
+// 4. 为topYs设置防抖
+    this.getTopYs = debounce(() => {
+      this.topYs = []
+      this.topYs.push(0)
+      this.topYs.push(this.$refs.params.$el.offsetTop)
+      this.topYs.push(this.$refs.comment.$el.offsetTop)
+      this.topYs.push(this.$refs.recommend.$el.offsetTop)
+      this.topYs.push(Number.MAX_VALUE) // 在数组末尾增加一个无限大的值，为了之后对数组做遍历
+      <!-- console.log(this.topYs) -->
+    },100)
+
+```
+
+```javascript
+// 点击跳转
+clickTitle (index) {
+      // console.log(index);
+      this.$refs.scroll.scrollTo(0,-this.topYs[index],1000)
+    },
+
+```
+
+#### 滚动变红-》》滚动内容区域与标题联动
+
+**【重点：判断条件】**
+在获取四个 offsetTop 之后，push 进一个最大值，这样就不用分开写条件了，不会溢出
+
+```javascript
+for(let i=0;i<length-1;i++){
+          if(this.currentIndex !== i && (i<length-1 && positionY >= this.topYs[i] && positionY < this.topYs[i+1])){
+            this.currentIndex = i
+          console.log(i); // 因为此时打印非常频繁，所以将当前index保存为一个变量，在两个不等的情况下才打印，就不会很频繁
+          console.log(this.topYs[i]); // 此处的值是正值
+          this.$refs.nav.currentIndex = this.currentIndex
+        }
+
+```
+
+### 详情页的回到顶部
+
+和 homevue 相同
+methods 里不能抽混入 生命周期函数可以
+
+为了复用 home 页的回到顶部组件，进行抽取
+home.vue 和 detail.vue 回到顶部: mixin
+
+### 添加购物车点击事件 **VUEX**
+
+**VUEX** <<<----页面跳转保存数据
+
+1. 监听点击，获取商品信息：iid/price/image/desc/title...etc
+2. 将商品添加到 Vuex 中
+   **【要先判断添加的东西是不是已经在 carlist 里存在了，如果存在了就数量加 1】**
+   这个功能需要【**mutations 重构**】
+3. detailvue 里，actions 调用 dispatch
+
+```javascript
+addToCart() {
+      // console.log("addcart");
+      // 1.获取购物车需要展示的信息，因为有多个信息，所以可以放在一个对象里
+      const product = {};
+      product.image = this.topImages[0];
+      product.title = this.goods.title;
+      product.desc = this.goods.desc;
+      product.price = this.goods.newPrice;
+      // id一定要传，因为id是商品的唯一标识，是将id传给服务器获取到对应的商品
+      product.iid = this.iid;
+      product.realPrice = this.goods.realPrice;
+
+      // 2.将商品添加到购物车里
+      // this.$store.cartList.push(product)  //不要这么做，对store中状态的修改要通过mutation
+      // 直接通过mutation
+      // console.log(product);
+      // this.$store.commit("addCart", product);
+      // mutations重构
+
+      // 通过action【 通过 .dispatch 】
+      this.$store.dispatch("addCart", product);
+      // action返回promise  可以返回信息
+      // this.$store.dispatch('addCart', product).then(res => {
+      //   console.log(res)
+      // })
+    },
+```
+
+#### VUEX 重构
+
+mutations 唯一的目的是修改 state 中的状态
+mutations 中的每个方法尽可能完成的事件比较单一一点
+
+1. 将 mutations 中的代码抽取 action 中（定义两个 mutations）
+2. 将 mutatons/actions/常量 etc 单独抽取到文件中
+
+store->
+
+1. constant.js
+   把变量替换成常量
+   常量是 mutations 的名字
+
+```
+export const ADD_TO_CART = 'add_to_cart';
+export const ADD_TO_COUNTER = 'add_to_counter';
+```
+
+2. actions.js
+   通过 actions 调用 mutations，来修改 state
+   加入购物车时调用
+
+```
+import {
+    ADD_TO_CART,
+    ADD_TO_COUNTER
+} from './constant';
+
+export default {
+    // 加入购物车
+    addCart({state, commit}, payload){
+        return new Promise((resolve, reject)=>{
+            //1.查找之前数组中是否含有该商品
+            let product = state.cartList.find((item)=> item.iid === payload.iid);
+
+            //2. 判断product,这里涉及深拷贝与浅拷贝
+            if(product){
+                commit(ADD_TO_COUNTER, product);
+                resolve('成功添加购物车num+1');
+            }else {
+                // 添加num属性
+                payload.num = 1;
+                // 添加selecte属性
+                payload.isSelected = false;
+                commit(ADD_TO_CART, payload);
+                resolve("成功添加购物车");
+            }
+        })
+    }
+}
+```
+
+3. getters.js 用作计算属性的功能
+   购物车列表 和购物车长度
+
+```
+export default {
+    cartList(state){
+        return state.cartList;
+    },
+    cartListLength(state){
+        return state.cartList.length;
+    }
+}
+```
+
+4. mutations.js
+   被 actions 调用， 要通过 mutations 修改 state！！
+
+```
+import {
+    ADD_TO_CART,
+    ADD_TO_COUNTER
+} from './constant';
+
+export default {
+    [ADD_TO_CART](state,payload){
+        state.cartList.push(payload);
+    },
+    [ADD_TO_COUNTER](state, payload){
+        payload.num ++ ;
+    }
+}
+```
+
+5. index.js
+
+```
+export default new Vuex.Store({
+    state,
+    mutations,
+    actions,
+    getters
+})
+```
+
+## 【页面】 购物车组件 cart
+
+### 在 navbar 上显示商品数量
+
+可将实时展示的购物车的数量用 vuex 的 getters 做封装，再引入 vuex 的 mapGetters 做**解构引入**
+
+```
+computed: {
+    //   1.普通写法
+    // cartLength () {
+    // //   return this.$store.state.cartLish.length  将方法封装到getters之前的写法
+    //   return this.$store.getters.cartLength   封装到getters之后的写法
+    // }
+    // 2.利用mapGetters解构 ， 还可用 mapState , mapActions
+    ...mapGetters(['cartLength'])
+  }
+
+```
+
+### 购物车商品的展示
+
+#### 刷新界面
+
+由于新加入的商品可能未被 better-scroll 所获取，所以导致不能滚动，可以在进入购物车时就做一次刷新 **activated()**
+
+```
+activated () {
+    // console.log('0000');
+    this.$refs.scroll.refresh()
+  }
+```
+
+#### 商品的选中状态
+
+记录商品的选中状态，不能用属性记录，要在商品对应的对象模型里记录，之后修改也是修改对象模型里的某个属性来进行修改
+对象模型即`cartList[商品1，商品2]`中的商品模型，
+为商品模型设置一个 selected 属性，记录它的选中与否
+【在 actionsjs 里】【调用 mutations】
+
+```javascript
+export default {
+  // 加入购物车
+  // payload：由detailvue传来的product对象，包含image，title，iid，etc
+  addCart({ state, commit }, payload) {
+    return new Promise((resolve, reject) => {
+      //1.查找之前数组中是否含有该商品
+      let product = state.cartList.find((item) => item.iid === payload.iid);
+
+      //2. 判断product,这里涉及深拷贝与浅拷贝
+      if (product) {
+        commit(ADD_TO_COUNTER, product);
+        resolve("成功添加购物车num+1");
+      } else {
+        // 添加num属性
+        payload.num = 1;
+        // 添加selected属性
+        payload.isSelected = false;
+        commit(ADD_TO_CART, payload);
+        resolve("成功添加购物车");
+      }
+    });
+  },
+};
+```
+
+### cart 底部信息计算
+
+通过计算属性处理来自 vuex 的数据，把计算属性{{}}绑定在 dom 里
+
+#### 计算总价
+
+array 的**filter + reduce**
+通过 filter 选出被选中的商品，再通过 reduce 计算总额
+
+```javascript
+computed: {
+    ...mapGetters(['cartList']),
+    totalPrice () {
+    //   return '￥' + this.$store.state.cartList.filter(item => {
+      return '￥' + this.cartList.filter(item => {  // mapGetters结构之后这样写
+          return item.checked}).reduce((preValue,item) => {
+              return preValue + item.price * item.count
+          },0).toFixed(2) // toFixed(2) 计算结果保留2位小数
+    },
+
+```
+
+#### 设置全选按钮
+
+array.find
+初始状态：购物车没有商品时默认不选中
+只要有一个未被选中，则不选中全选按钮，用 find 性能最高
+computed:计算属性下
+
+```javascript
+isSelectAll () {
+    // 1. filter会将数组全部遍历完
+    // if(this.cartList.length === 0) return false
+    //   return !(this.cartList.filter(item => !item.checked).length) // 对未被选中的商品长度进行取反，0取反为true
+    // 2.简单遍历，也会全部遍历完
+    // for(let item of this.cartList){
+    //     if(!item.checked){ // 没有选中的情况为真
+    //             return false
+    //         }
+    //     }
+    //         return true
+    // 3. find 只找到一个就不找了，性能会高一点
+      if(this.cartList.length === 0) return false  // 购物车中没有商品时，默认不选中
+      return !(this.cartList.find(item => !item.checked)) // (括号里面有值的情况下再取反，结果就为false)
+    }
+```

@@ -37,6 +37,7 @@ export default {
   methods: {
     titleClick(index) {
       this.currentIndex = index;
+      this.$emit("titleClick", index);
     },
     // 点击左箭头返回
     backClick() {
