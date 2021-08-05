@@ -2,11 +2,21 @@ import Vue from "vue";
 import App from "./App.vue";
 import router from "./router/index";
 import store from "./store";
+import FastClick from "fastclick";
+
+// 解决移动端300ms延迟
+FastClick.attach(document.body);
+
+// 引入toast
+import toast from "./components/common/toast";
 
 Vue.config.productionTip = false;
 
 // 事件总线  $bus.$on  $bus.$emit
 Vue.prototype.$bus = new Vue();
+
+// 安装使用toast
+Vue.use(toast);
 
 new Vue({
   router,

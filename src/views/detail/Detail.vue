@@ -177,12 +177,18 @@ export default {
       // this.$store.commit("addCart", product);
       // mutations重构
 
-      // 通过vuex的action【 通过 .dispatch 】
-      this.$store.dispatch("addCart", product);
+      // this.$store.dispatch("addCart", product);
       // action返回promise  可以返回信息
       // this.$store.dispatch('addCart', product).then(res => {
       //   console.log(res)
       // })
+
+      // ////////////////////////
+      // // 通过vuex的action【 通过 .dispatch 】
+      // 并且 【【toast 弹出】】
+      this.$store.dispatch("addCart", product).then((res) => {
+        this.$toast.show(res, 2000);
+      });
     },
   },
   //   生命周期函数created()

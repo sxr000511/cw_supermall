@@ -840,3 +840,101 @@ isSelectAll () {
       return !(this.cartList.find(item => !item.checked)) // (括号里面有值的情况下再取反，结果就为false)
     }
 ```
+
+### 添加购物车成功的弹窗 toast,将 Toast 组件封装为插件
+
+添加成功 --> 弹出提示
+在 vuex 里做了某个操作，想让外面的组件监听这一操作是否成功，就要用到 promise
+vuex 中的 actions 中的方法函数可以【【返回 promise 对象】】
+actions-》mutations
+
+promise.resolve 回调，状态 resolved，外部调用 promise.then（一参数）
+promise reject 回调，状态 rejected ，外部调用 then（二参）/catch（err）
+
+1. mainjs 中导入插件
+
+```javascript
+import toast from "components/common/toast"; // 1.引入插件
+// 2.安装插件,就相当于调用了toast的install函数方法
+Vue.use(toast);
+```
+
+vue.use toast 执行 index 下面的 install 函数，并且传入参数 vue
+
+2.  components/common/toast/index.js
+    在 vue 原型上加上 toast，并且添加到 body 里
+    **将 toast 组件对象放在 vue 原型上，使得其他任意组件都可使用\$toast 方法使用 toast 组件对象**
+
+```javascript
+import Toast from "./Toast"; // 将toast组件导入进来，好添加组件中的元素
+const obj = {};
+obj.install = function(Vue) {
+  // 1.vue.extend()创建组件构造器
+  const toastConstructor = Vue.extend(Toast);
+  // 2.用new的方式，根据组件构造器，可以创建一个组件对象
+  const toast = new toastConstructor();
+  // 3.将组件对象手动地挂载到某一个元素上
+  // 将toast组件对象挂载到一个dom，div上
+  toast.$mount(document.createElement("div"));
+  // 4.挂载完之后，toast.$el对应的就是div
+  document.body.appendChild(toast.$el);
+
+  Vue.prototype.$toast = toast;
+};
+export default obj;
+```
+
+```
+【.extend(), $mount的例子：】如果 Vue 实例在实例化时没有收到 el 选项，则它处于“未挂载”状态，没有关联的 DOM 元素。可以使用 
+vm.$mount() 手动地挂载一个未挂载的实例。
+
+var MyComponent = Vue.extend({
+  template: '<div>Hello!</div>'
+})
+
+// 创建并挂载到 #app (会替换 #app)
+new MyComponent().$mount('#app')
+
+// 同上
+new MyComponent({ el: '#app' })
+
+// 或者，在文档之外渲染并且随后挂载
+var component = new MyComponent().$mount()
+document.getElementById('app').appendChild(component.$el)
+```
+
+toast.vue
+
+```javascript
+export default {
+  name: "Toast",
+  data() {
+    return {
+      message: "",
+      isShow: false,
+    };
+  },
+  methods: {
+    //默认值2000
+    show(message, duration = 2000) {
+      this.message = message;
+      this.isShow = true;
+      //  可以用setTimeout实现，也可以用动画实现
+      setTimeout(() => {
+        this.isShow = false;
+        this.message = "";
+      }, duration);
+    },
+  },
+};
+```
+
+### 补充
+
+fastclick， 图片懒加载， px2vm，服务器部署
+
+#### vue 响应式：
+
+当你把一个普通的 JavaScript 对象传入 Vue 实例作为  data  选项，Vue 将遍历此对象所有的 property，并使用  Object.defineProperty  把这些 property 全部转为  getter/setter。
+每个组件实例都对应一个  watcher  实例，它会在组件渲染的过程中把“接触”过的数据 property 记录为依赖。
+之后当依赖项的 setter 触发时，会通知 watcher，从而使它关联的组件重新渲染。

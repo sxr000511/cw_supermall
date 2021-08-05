@@ -53,6 +53,8 @@ export default {
     },
   },
   methods: {
+    // 原来全选-》点击全不选【isSelected=false】，原来没全选，点击全选
+    // 不能把falsetrue改成isselectedall，因为isselectedall受isselected影响，他们互相影响会混乱
     handleSelectAllGoods() {
       if (this.isSelectAllGoods) {
         this.cartList.map((item) => (item.isSelected = false));
